@@ -18,7 +18,6 @@ def prepare_training_data(data_dir="images"):
 
     data_dir = Path(data_dir)
     if not data_dir.exists():
-        print("❌ Training folder not found.")
         return [], [], {}
 
     for person_dir in data_dir.iterdir():
@@ -59,7 +58,6 @@ else:
     recognizer = cv2.face.LBPHFaceRecognizer_create()
     recognizer.train(faces, labels)
 
-
 # -----------------------
 # Attendance File
 # -----------------------
@@ -69,24 +67,21 @@ if os.path.exists(attendance_file):
 else:
     attendance = pd.DataFrame(columns=["Name", "Date", "Time"])
 
-
 # -----------------------
 # Streamlit UI
 # -----------------------
 st.title("📸 Facial Recognition Attendance System")
 
-run_camera = st.checkbox("Start Camera")
+if recognizer is None:
+    st.error("⚠️ No valid faces found in training images. Please add clear face images in `images/` folder.")
+else:
+    st.subheader("🎥 Capture a photo to mark attendance")
+    img_file = st.camera_input("Take a photo")
 
-FRAME_WINDOW = st.image([])
-
-if run_camera and recognizer is not None:
-    cap = cv2.VideoCapture(0)
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            st.error("Camera not accessible")
-            break
+    if img_file is not None:
+        # Read image
+        file_bytes = np.asarray(bytearray(img_file.getvalue()), dtype=np.uint8)
+        frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces_rects = cv2.CascadeClassifier(
@@ -117,12 +112,7 @@ if run_camera and recognizer is not None:
             cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
             cv2.putText(frame, name, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
-        FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-    cap.release()
-elif recognizer is None:
-    st.error("⚠️ No valid faces found in training images. Please add clear face images in `images/` folder.")
-
+        st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), caption="Detection Result", use_column_width=True)
 
 # -----------------------
 # Show Attendance Table

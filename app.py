@@ -1,10 +1,10 @@
 import streamlit as st
 import cv2
-import face_recognition
 import numpy as np
 import pandas as pd
 from datetime import datetime
 import os
+from deepface import DeepFace
 
 # -----------------------
 # Load known faces
@@ -13,13 +13,9 @@ path = "images"  # folder with known faces
 known_faces = []
 known_names = []
 
-if os.path.exists(path):
-    for filename in os.listdir(path):
-        img = face_recognition.load_image_file(f"{path}/{filename}")
-        encodings = face_recognition.face_encodings(img)
-        if encodings:  # avoid error if no face found
-            known_faces.append(encodings[0])
-            known_names.append(os.path.splitext(filename)[0])
+for filename in os.listdir(path):
+    known_faces.append(os.path.join(path, filename))
+    known_names.append(os.path.splitext(filename)[0])
 
 # -----------------------
 # Attendance DataFrame
@@ -33,60 +29,49 @@ else:
 # -----------------------
 # Streamlit UI
 # -----------------------
-st.title("📸 Facial Recognition Attendance System")
-
-# Initialize session state for camera
-if "cap" not in st.session_state:
-    st.session_state.cap = None
+st.title("📸 Facial Recognition Attendance System (DeepFace)")
 
 run_camera = st.checkbox("Start Camera")
 FRAME_WINDOW = st.image([])
 
 if run_camera:
-    if st.session_state.cap is None:
-        st.session_state.cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0)
 
-    cap = st.session_state.cap
-    ret, frame = cap.read()
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            st.error("Camera not accessible")
+            break
 
-    if not ret:
-        st.error("Camera not accessible")
-    else:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        face_locations = face_recognition.face_locations(rgb_frame)
-        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
-        for face_encoding, face_loc in zip(face_encodings, face_locations):
-            matches = face_recognition.compare_faces(known_faces, face_encoding)
-            name = "Unknown"
+        try:
+            # Verify face against database
+            for idx, db_img in enumerate(known_faces):
+                result = DeepFace.verify(rgb_frame, db_img, enforce_detection=False)
 
-            face_distances = face_recognition.face_distance(known_faces, face_encoding)
-            best_match_index = np.argmin(face_distances) if len(face_distances) > 0 else None
+                if result["verified"]:
+                    name = known_names[idx]
 
-            if best_match_index is not None and matches[best_match_index]:
-                name = known_names[best_match_index]
+                    # Mark attendance if not already done today
+                    today = datetime.now().strftime("%Y-%m-%d")
+                    now_time = datetime.now().strftime("%H:%M:%S")
 
-                # Mark attendance if not already done today
-                today = datetime.now().strftime("%Y-%m-%d")
-                now_time = datetime.now().strftime("%H:%M:%S")
+                    if not ((attendance["Name"] == name) & (attendance["Date"] == today)).any():
+                        new_row = {"Name": name, "Date": today, "Time": now_time}
+                        attendance = pd.concat([attendance, pd.DataFrame([new_row])], ignore_index=True)
+                        attendance.to_csv(attendance_file, index=False)
 
-                if not ((attendance["Name"] == name) & (attendance["Date"] == today)).any():
-                    new_row = {"Name": name, "Date": today, "Time": now_time}
-                    attendance = pd.concat([attendance, pd.DataFrame([new_row])], ignore_index=True)
-                    attendance.to_csv(attendance_file, index=False)
+                    cv2.putText(frame, name, (50, 50), cv2.FONT_HERSHEY_SIMPLEX,
+                                1, (0, 255, 0), 2, cv2.LINE_AA)
+                    break
 
-            # Draw box + name
-            top, right, bottom, left = face_loc
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(frame, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        except Exception as e:
+            st.write("No face detected:", e)
 
         FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-else:
-    # Stop camera when checkbox is unchecked
-    if st.session_state.cap is not None:
-        st.session_state.cap.release()
-        st.session_state.cap = None
+    cap.release()
 
 # -----------------------
 # Show Attendance Table

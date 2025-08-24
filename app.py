@@ -65,7 +65,7 @@ attendance_file = "attendance.csv"
 if os.path.exists(attendance_file):
     attendance = pd.read_csv(attendance_file)
 else:
-    attendance = pd.DataFrame(columns=["Name", "Date", "Time"])
+    attendance = pd.DataFrame(columns=["Name", "Date", "Time", "Status"])
 
 # -----------------------
 # Streamlit UI
@@ -95,12 +95,12 @@ if run_camera and recognizer is not None:
             if confidence < 70:  # lower = better
                 name = label_dict[label]
 
-                # Mark attendance
+                # Mark attendance as "Present"
                 today = datetime.now().strftime("%Y-%m-%d")
                 now_time = datetime.now().strftime("%H:%M:%S")
 
                 if not ((attendance["Name"] == name) & (attendance["Date"] == today)).any():
-                    new_row = {"Name": name, "Date": today, "Time": now_time}
+                    new_row = {"Name": name, "Date": today, "Time": now_time, "Status": "Present"}
                     attendance = pd.concat([attendance, pd.DataFrame([new_row])], ignore_index=True)
                     attendance.to_csv(attendance_file, index=False)
 
@@ -109,6 +109,7 @@ if run_camera and recognizer is not None:
                 name = "Unknown"
                 color = (0, 0, 255)
 
+            # Draw rectangle + name
             cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
             cv2.putText(frame, name, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 

@@ -35,16 +35,20 @@ else:
 # -----------------------
 st.title("📸 Facial Recognition Attendance System")
 
-run_camera = st.checkbox("Start Camera")
+# Initialize session state for camera
+if "cap" not in st.session_state:
+    st.session_state.cap = None
 
+run_camera = st.checkbox("Start Camera")
 FRAME_WINDOW = st.image([])
-cap = None
 
 if run_camera:
-    cap = cv2.VideoCapture(0)
+    if st.session_state.cap is None:
+        st.session_state.cap = cv2.VideoCapture(0)
 
-if cap is not None and run_camera:
+    cap = st.session_state.cap
     ret, frame = cap.read()
+
     if not ret:
         st.error("Camera not accessible")
     else:
@@ -78,7 +82,11 @@ if cap is not None and run_camera:
 
         FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-    cap.release()
+else:
+    # Stop camera when checkbox is unchecked
+    if st.session_state.cap is not None:
+        st.session_state.cap.release()
+        st.session_state.cap = None
 
 # -----------------------
 # Show Attendance Table

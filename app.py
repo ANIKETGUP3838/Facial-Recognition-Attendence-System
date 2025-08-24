@@ -38,7 +38,7 @@ def prepare_training_data(data_dir="images"):
                 continue
 
             for (x, y, w, h) in faces_rects:
-                face = gray[y:y+h, x:x+w]
+                face = cv2.resize(gray[y:y+h, x:x+w], (200, 200))
                 faces.append(face)
                 labels.append(current_label)
 
@@ -70,28 +70,26 @@ else:
 # -----------------------
 # Streamlit UI
 # -----------------------
-st.title("📸 Facial Recognition Attendance System - Live Camera")
+st.title("📸 Real-Time Facial Recognition Attendance")
 
-run_camera = st.checkbox("Start Live Camera")
-
+run_camera = st.checkbox("Start Camera")
 FRAME_WINDOW = st.image([])
 
 if run_camera and recognizer is not None:
     cap = cv2.VideoCapture(0)
 
-    while True:
+    while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             st.error("Camera not accessible")
             break
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces_rects = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        ).detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5, minSize=(60, 60))
+        detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        faces_rects = detector.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5, minSize=(60, 60))
 
         for (x, y, w, h) in faces_rects:
-            face = gray[y:y+h, x:x+w]
+            face = cv2.resize(gray[y:y+h, x:x+w], (200, 200))
             label, confidence = recognizer.predict(face)
 
             if confidence < 70:  # lower = better
@@ -119,6 +117,7 @@ if run_camera and recognizer is not None:
     cap.release()
 elif recognizer is None:
     st.error("⚠️ No valid faces found in training images. Please add clear face images in `images/` folder.")
+
 
 # -----------------------
 # Show Attendance Table

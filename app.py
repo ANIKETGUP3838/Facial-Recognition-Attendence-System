@@ -70,18 +70,20 @@ else:
 # -----------------------
 # Streamlit UI
 # -----------------------
-st.title("📸 Facial Recognition Attendance System")
+st.title("📸 Facial Recognition Attendance System - Live Camera")
 
-if recognizer is None:
-    st.error("⚠️ No valid faces found in training images. Please add clear face images in `images/` folder.")
-else:
-    st.subheader("🎥 Capture a photo to mark attendance")
-    img_file = st.camera_input("Take a photo")
+run_camera = st.checkbox("Start Live Camera")
 
-    if img_file is not None:
-        # Read image
-        file_bytes = np.asarray(bytearray(img_file.getvalue()), dtype=np.uint8)
-        frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+FRAME_WINDOW = st.image([])
+
+if run_camera and recognizer is not None:
+    cap = cv2.VideoCapture(0)
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            st.error("Camera not accessible")
+            break
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces_rects = cv2.CascadeClassifier(
@@ -112,7 +114,11 @@ else:
             cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
             cv2.putText(frame, name, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
-        st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), caption="Detection Result", use_column_width=True)
+        FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+    cap.release()
+elif recognizer is None:
+    st.error("⚠️ No valid faces found in training images. Please add clear face images in `images/` folder.")
 
 # -----------------------
 # Show Attendance Table

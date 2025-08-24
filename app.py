@@ -13,11 +13,13 @@ path = "images"  # folder with known faces
 known_faces = []
 known_names = []
 
-for filename in os.listdir(path):
-    img = face_recognition.load_image_file(f"{path}/{filename}")
-    encoding = face_recognition.face_encodings(img)[0]
-    known_faces.append(encoding)
-    known_names.append(os.path.splitext(filename)[0])
+if os.path.exists(path):
+    for filename in os.listdir(path):
+        img = face_recognition.load_image_file(f"{path}/{filename}")
+        encodings = face_recognition.face_encodings(img)
+        if encodings:  # avoid error if no face found
+            known_faces.append(encodings[0])
+            known_names.append(os.path.splitext(filename)[0])
 
 # -----------------------
 # Attendance DataFrame
@@ -36,15 +38,16 @@ st.title("📸 Facial Recognition Attendance System")
 run_camera = st.checkbox("Start Camera")
 
 FRAME_WINDOW = st.image([])
+cap = None
 
 if run_camera:
     cap = cv2.VideoCapture(0)
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            st.error("Camera not accessible")
-            break
 
+if cap is not None and run_camera:
+    ret, frame = cap.read()
+    if not ret:
+        st.error("Camera not accessible")
+    else:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         face_locations = face_recognition.face_locations(rgb_frame)
         face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
@@ -54,9 +57,9 @@ if run_camera:
             name = "Unknown"
 
             face_distances = face_recognition.face_distance(known_faces, face_encoding)
-            best_match_index = np.argmin(face_distances)
+            best_match_index = np.argmin(face_distances) if len(face_distances) > 0 else None
 
-            if matches[best_match_index]:
+            if best_match_index is not None and matches[best_match_index]:
                 name = known_names[best_match_index]
 
                 # Mark attendance if not already done today
